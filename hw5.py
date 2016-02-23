@@ -7,6 +7,7 @@ from xml.etree.ElementTree import Element
 from xml.etree.ElementTree import SubElement
 import cv2
 import numpy as np
+import sys
 
 # CONSTANTS
 API_KEY = 'AlfZl5Bjb08aGyCb2S-7cFyMx0f3SMNifV3d09xAjzWD8SQx03H8NB1-0NIgeH8q'
@@ -27,9 +28,7 @@ def makeRequest((lat1, lon1), (lat2, lon2)):
    'output' : 'xml', #XML output
    'key' : API_KEY, #API KEY
    'pp' : str(lat1)+','+str(lon1)+';;T',
-   # 'he' : 1 #HighlightEntity
    'ma' : str(lat1)+','+str(lon1)+','+str(lat2)+','+str(lon2) #Box area
-   # 'ma' : '45.219,-122.325,47.610,-122.107' #Box area
    }
    reqUrl = 'http://dev.virtualearth.net/REST/V1/Imagery/Metadata/Aerial?'
    try:
@@ -38,9 +37,9 @@ def makeRequest((lat1, lon1), (lat2, lon2)):
       res = response.read()
 
       # save response
-      text_file = open(str(lat1)+"-"+str(lat2)+".txt", 'w+')
-      text_file.write(res)
-      text_file.close()
+      # text_file = open(str(lat1)+"-"+str(lat2)+".txt", 'w+')
+      # text_file.write(res)
+      # text_file.close()
 
       return res
 
@@ -62,14 +61,17 @@ def fixURL(url, subdomain, quadkey):
    """ returns maptile url with specified subdomain and quadkey """
    url = url.replace("{subdomain}", subdomain)
    url = url.replace("{quadkey}", quadkey)
-   print "url: " + url
+   # print "getting image from url: " + url
    return url
 
 def getImage(url, name):
    """ downloads image from url and save as name"""
-   urllib.urlretrieve(url, str(name))
-   print "saved as " + name
-   return
+   resp = urllib.urlopen(url)
+   image = np.asarray(bytearray(resp.read()), dtype="uint8")
+   image = cv2.imdecode(image, cv2.IMREAD_COLOR)
+   # urllib.urlretrieve(url, str(name))
+   # print "saved as " + name
+   return image
 
 def getPixel((lat, lon), level):
    """ returns the pixel coordinate from latitude, longitude, and highest zom level """
@@ -141,35 +143,65 @@ def fullRun(req, (lat1, lon1), (lat2, lon2), filename):
    # Find largest common tile
    quad = commonStart(quad1, quad2)
    newLevel = len(quad)
-   # print "quadkeys: " + str(quad1) + ", " + str(quad2) + "; " + str(quad)
 
    finalUrl = fixURL(url, 't0', quad)
    getImage(finalUrl, filename)
 
-   imgArray = np.zeros(64,1)
-   for i in range(0, 4):
-      for j in range(0, 4):
-         for k in range(0, 4):
-            nextUrl = fixURL(url, 't0', quad+str(i)+str(j)+str(k))
-            imgArray[i*16 + j*4 + k] = getImage(nextUrl, "highres_"+filename) 
+   # Get 4x higher resolution than highest containing tile
+   nextUrl = fixURL(url, 't0', quad+str(0)+str(0))
+   img0 = getImage(nextUrl, "0.jpg")
+   nextUrl = fixURL(url, 't0', quad+str(0)+str(1))
+   img1 = getImage(nextUrl, "0.jpg")
+   nextUrl = fixURL(url, 't0', quad+str(0)+str(2))
+   img2 = getImage(nextUrl, "0.jpg")
+   nextUrl = fixURL(url, 't0', quad+str(0)+str(3))
+   img3 = getImage(nextUrl, "0.jpg")
+   full0 = np.concatenate((np.concatenate((img0,img1), axis=1), np.concatenate((img2, img3), axis=1)), axis=0)
 
-   img1 = cv2.imread("0"+filename)
-   img2 = cv2.imread("1"+filename)
-   img3 = cv2.imread("2"+filename)
-   img4 = cv2.imread("3"+filename)
-   row1 = np.concatenate((img1, img2), axis=1)
-   row2 = np.concatenate((img3, img4), axis=1)
-   full = np.concatenate((row1, row2), axis=0)
-   cv2.imwrite('highres_'+filename, full)
+   nextUrl = fixURL(url, 't0', quad+str(1)+str(0))
+   img0 = getImage(nextUrl, "0.jpg")
+   nextUrl = fixURL(url, 't0', quad+str(1)+str(1))
+   img1 = getImage(nextUrl, "0.jpg")
+   nextUrl = fixURL(url, 't0', quad+str(1)+str(2))
+   img2 = getImage(nextUrl, "0.jpg")
+   nextUrl = fixURL(url, 't0', quad+str(1)+str(3))
+   img3 = getImage(nextUrl, "0.jpg")
+   full1 = np.concatenate((np.concatenate((img0,img1), axis=1), np.concatenate((img2, img3), axis=1)), axis=0)
+
+   nextUrl = fixURL(url, 't0', quad+str(2)+str(0))
+   img0 = getImage(nextUrl, "0.jpg")
+   nextUrl = fixURL(url, 't0', quad+str(2)+str(1))
+   img1 = getImage(nextUrl, "0.jpg")
+   nextUrl = fixURL(url, 't0', quad+str(2)+str(2))
+   img2 = getImage(nextUrl, "0.jpg")
+   nextUrl = fixURL(url, 't0', quad+str(2)+str(3))
+   img3 = getImage(nextUrl, "0.jpg")
+   full2 = np.concatenate((np.concatenate((img0,img1), axis=1), np.concatenate((img2, img3), axis=1)), axis=0)
+
+   nextUrl = fixURL(url, 't0', quad+str(3)+str(0))
+   img0 = getImage(nextUrl, "0.jpg")
+   nextUrl = fixURL(url, 't0', quad+str(3)+str(1))
+   img1 = getImage(nextUrl, "0.jpg")
+   nextUrl = fixURL(url, 't0', quad+str(3)+str(2))
+   img2 = getImage(nextUrl, "0.jpg")
+   nextUrl = fixURL(url, 't0', quad+str(3)+str(3))
+   img3 = getImage(nextUrl, "0.jpg")
+   full3 = np.concatenate((np.concatenate((img0,img1), axis=1), np.concatenate((img2, img3), axis=1)), axis=0)
+
+   full = np.concatenate((np.concatenate((full0,full1), axis=1), np.concatenate((full2, full3), axis=1)), axis=0)
+
+   # cv2.imwrite('highres_'+filename, full)
 
    # Draw rectangle
+   count = 4
+ 
    pix1 = getPixel((lat1, lon1), newLevel)
    tile1 = getTile(pix1)
-   coord1 = ((pix1[0]-tile1[0]*256)*8, (pix1[1]-tile1[1]*256)*2)
+   coord1 = ((pix1[0]-tile1[0]*256)*count, (pix1[1]-tile1[1]*256)*count)
 
    pix2 = getPixel((lat2, lon2), newLevel)
    tile2 = getTile(pix2)
-   coord2 = ((pix2[0]-tile2[0]*256)*8, (pix2[1]-tile2[1]*256)*2)
+   coord2 = ((pix2[0]-tile2[0]*256)*count, (pix2[1]-tile2[1]*256)*count)
 
    img = full #cv2.imread('highres_'+filename)
 
@@ -189,46 +221,87 @@ def fullRun(req, (lat1, lon1), (lat2, lon2), filename):
       d = coord1[1]
 
    cropped = img[c:d, a:b]
-   cv2.imwrite("cropped_"+filename, cropped)
+   cv2.imwrite(filename, cropped)
 
    # Boxed Image
-   cv2.rectangle(img, coord1, coord2, (0, 0,  255), 1)
+   # cv2.rectangle(img, coord1, coord2, (0, 0,  255), 1)
    # cv2.rectangle(img, (0, 127), (255, 127), (255, 255,  255), 1)
    # cv2.rectangle(img, (127, 0), (127, 255), (255, 255,  255), 1)
-   cv2.imwrite("boxed_"+filename, img)
+   # cv2.imwrite("boxed_"+filename, img)
 
    return url, level, quad1, quad2, quad, finalUrl, coord1, coord2
 
 def main():
    """ runs with test values """
+
+   testA = (63.514382, 131.466770) # Russia
+   testB = (40.921995, -121.658231) # California
+   # req = readRequest(str(testA[0])+"-"+str(testB[0])+".txt")
+   req = makeRequest(testA, testB)
+   url, level, quad1, quad2, quad, finalUrl, coord1, coord2 = fullRun(req, testA, testB, "iCanSeeRussiaFromMyHouse.jpg")
+
    # req_1 = readRequest("29.7604-29.4.txt")
-   # test1a = (29.7604, -95.3698) # Houston
-   # test1b = (29.4000, -94.9339) # Texas City
-   # # req_1 = makeRequest(test1a, test1b)
-   # url_1, level_1, quad1_1, quad2_1, quad_1, finalUrl_1, coord1_1, coord2_2 = fullRun(req_1, test1a, test1b, "HoustonToTexasCity.jpg")
+   test1a = (29.7604, -95.3698) # Houston
+   test1b = (29.4000, -94.9339) # Texas City
+   req_1 = makeRequest(test1a, test1b)
+   url_1, level_1, quad1_1, quad2_1, quad_1, finalUrl_1, coord1_1, coord2_2 = fullRun(req_1, test1a, test1b, "HoustonToTexasCity.jpg")
 
    # req_2 = readRequest("42.0464-40.7127.txt")
-   # test2a = (42.0464, -87.6947) # Evanston
-   # test2b = (40.7127, -74.0059) # New York
-   # # req_2 = makeRequest(test2a, test2b)
-   # url_2, level_2, quad1_2, quad2_2, quad_2, finalUrl_2, coord1_2, coord2_2 = fullRun(req_2, test2a, test2b, "EvanstonToNewYork.jpg")
+   test2a = (42.0464, -87.6947) # Evanston
+   test2b = (40.7127, -74.0059) # New York
+   req_2 = makeRequest(test2a, test2b)
+   url_2, level_2, quad1_2, quad2_2, quad_2, finalUrl_2, coord1_2, coord2_2 = fullRun(req_2, test2a, test2b, "EvanstonToNewYork.jpg")
 
    # req_3 = readRequest("41.8369-42.0464.txt")
-   # test3a = (41.8369, -87.6847) # Chicago
-   # test3b = (42.0464, -87.6947) # Evanston
-   # # req_3 = makeRequest(test3a, test3b)
-   # url_3, level_3, quad1_3, quad2_3, quad_3, finalUrl_3, coord1_3, coord2_3 = fullRun(req_3, test3a, test3b, "ChicagoToEvanston.jpg")
+   test3a = (41.8369, -87.6847) # Chicago
+   test3b = (42.0464, -87.6947) # Evanston
+   req_3 = makeRequest(test3a, test3b)
+   url_3, level_3, quad1_3, quad2_3, quad_3, finalUrl_3, coord1_3, coord2_3 = fullRun(req_3, test3a, test3b, "ChicagoToEvanston.jpg")
 
-   req_4 = readRequest("42.0586-42.056717.txt")
+   # req_4 = readRequest("42.0586-42.056717.txt")
    test4a = (42.058600, -87.674878) # NE Tech (Evanston campus)
    test4b = (42.056717, -87.676917) # SW Tech (Evanston campus)
-   # req_4 = makeRequest(test4a, test4b)
+   req_4 = makeRequest(test4a, test4b)
    url_4, level_4, quad1_4, quad2_4, quad_4, finalUrl_4, coord1_4, coord2_4 = fullRun(req_4, test4a, test4b, "Tech.jpg")
- 
+
    return
 
 if __name__ == "__main__":
-   main()
+   # run from command line version
+   # ./hw5.py lat1 lon1 lat2 lon2 
+   ########################
+   # try:
+   #    coord1 = (float(sys.argv[1]), float(sys.argv[2]))
+   #    coord2 = (float(sys.argv[3]), float(sys.argv[4]))
+   #    imgName = sys.argv[5]
+   #    print "testing: " + str(coord1) + " to " + str(coord2)
+   #    print "output directory: " + imgName
+   # except:
+   #    print "no coordinates specified, using default: (42.059585, -87.670606) to (42.049735, -87.681517) saved to NUcampus"
+   #    coord1 = (42.059585, -87.670606) # NE Evanston campus
+   #    coord2 = (42.049735, -87.681517) # SW Evanston campus
+   #    imgName = "NUcampus"
+   #    
+   #    req = makeRequest(coord1, coord2)
+   #    url, level, quad1, quad2, quad, finalUrl, coord1, coord2 = fullRun(req, testA, testB, str(imgName)+".jpg")
+   
 
+   # interactive version
+   #######################
+   done = 0
 
-# "http://dev.virtualearth.net/REST/V1/Imagery/Metadata/Aerial/40.714550167322159,-74.007124900817871?zl=15&output=xml&key=AlfZl5Bjb08aGyCb2S-7cFyMx0f3SMNifV3d09xAjzWD8SQx03H8NB1-0NIgeH8q"
+   while not done:
+      lat1 = raw_input("Enter first latitude: ")
+      lon1 = raw_input("Enter first longitude: ")
+      lat2 = raw_input("Enter second latitude: ")
+      lon2 = raw_input("Enter second longitude: ")
+      imgName = raw_input("Enter image name: ")
+      testA = (float(lat1), float(lon1))
+      testB = (float(lat2), float(lon2))
+
+      # API Request
+      req = makeRequest(testA, testB)
+
+      # Get Image
+      url, level, quad1, quad2, quad, finalUrl, coord1, coord2 = fullRun(req, testA, testB, str(imgName)+".jpg")
+      done = int(raw_input("Enter 1 if finished:"))
