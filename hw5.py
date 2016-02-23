@@ -6,6 +6,7 @@ import xml.etree.ElementTree as ET
 from xml.etree.ElementTree import Element
 from xml.etree.ElementTree import SubElement
 import cv2
+import numpy as np
 
 # CONSTANTS
 API_KEY = 'AlfZl5Bjb08aGyCb2S-7cFyMx0f3SMNifV3d09xAjzWD8SQx03H8NB1-0NIgeH8q'
@@ -145,16 +146,50 @@ def fullRun(req, (lat1, lon1), (lat2, lon2), filename):
    finalUrl = fixURL(url, 't0', quad)
    getImage(finalUrl, filename)
 
+   imgArray = np.zeros(64,1)
+   for i in range(0, 4):
+      for j in range(0, 4):
+         for k in range(0, 4):
+            nextUrl = fixURL(url, 't0', quad+str(i)+str(j)+str(k))
+            imgArray[i*16 + j*4 + k] = getImage(nextUrl, "highres_"+filename) 
+
+   img1 = cv2.imread("0"+filename)
+   img2 = cv2.imread("1"+filename)
+   img3 = cv2.imread("2"+filename)
+   img4 = cv2.imread("3"+filename)
+   row1 = np.concatenate((img1, img2), axis=1)
+   row2 = np.concatenate((img3, img4), axis=1)
+   full = np.concatenate((row1, row2), axis=0)
+   cv2.imwrite('highres_'+filename, full)
+
    # Draw rectangle
    pix1 = getPixel((lat1, lon1), newLevel)
    tile1 = getTile(pix1)
-   coord1 = (pix1[1]-tile1[1]*256, pix1[0]-tile1[0]*256)
+   coord1 = ((pix1[0]-tile1[0]*256)*8, (pix1[1]-tile1[1]*256)*2)
 
    pix2 = getPixel((lat2, lon2), newLevel)
    tile2 = getTile(pix2)
-   coord2 = (pix2[1]-tile2[1]*256, pix2[0]-tile2[0]*256)
+   coord2 = ((pix2[0]-tile2[0]*256)*8, (pix2[1]-tile2[1]*256)*2)
 
-   img = cv2.imread(filename)
+   img = full #cv2.imread('highres_'+filename)
+
+   # Cropped Image
+   if (coord1[0] < coord2[0]):
+      a = coord1[0]
+      b = coord2[0]
+   else:
+      a = coord2[0]
+      b = coord1[0]
+
+   if (coord1[1] < coord2[1]):
+      c = coord1[1]
+      d = coord2[1]
+   else:
+      c = coord2[1]
+      d = coord1[1]
+
+   cropped = img[c:d, a:b]
+   cv2.imwrite("cropped_"+filename, cropped)
 
    # Boxed Image
    cv2.rectangle(img, coord1, coord2, (0, 0,  255), 1)
@@ -162,36 +197,34 @@ def fullRun(req, (lat1, lon1), (lat2, lon2), filename):
    # cv2.rectangle(img, (127, 0), (127, 255), (255, 255,  255), 1)
    cv2.imwrite("boxed_"+filename, img)
 
-   # Cropped Image
-   cropped = img[coord1[0]:coord1[1], coord2[0]:coord2[1]]
-   cv2.imwrite("cropped_"+filename, cropped)
    return url, level, quad1, quad2, quad, finalUrl, coord1, coord2
 
 def main():
    """ runs with test values """
-   # req_1 = readRequest("req.txt")
-   test1a = (29.7604, -95.3698) # Houston
-   test1b = (29.4000, -94.9339) # Texas City
-   req_1 = makeRequest(test1a, test1b)
-   url_1, level_1, quad1_1, quad2_1, quad_1, finalUrl_1, coord1_1, coord2_2 = fullRun(req_1, test1a, test1b, "HoustonToTexasCity.jpg")
+   # req_1 = readRequest("29.7604-29.4.txt")
+   # test1a = (29.7604, -95.3698) # Houston
+   # test1b = (29.4000, -94.9339) # Texas City
+   # # req_1 = makeRequest(test1a, test1b)
+   # url_1, level_1, quad1_1, quad2_1, quad_1, finalUrl_1, coord1_1, coord2_2 = fullRun(req_1, test1a, test1b, "HoustonToTexasCity.jpg")
 
    # req_2 = readRequest("42.0464-40.7127.txt")
-   test2a = (42.0464, -87.6947) # Evanston
-   test2b = (40.7127, -74.0059) # New York
-   req_2 = makeRequest(test2a, test2b)
-   url_2, level_2, quad1_2, quad2_2, quad_2, finalUrl_2, coord1_2, coord2_2 = fullRun(req_2, test2a, test2b, "EvanstonToNewYork.jpg")
+   # test2a = (42.0464, -87.6947) # Evanston
+   # test2b = (40.7127, -74.0059) # New York
+   # # req_2 = makeRequest(test2a, test2b)
+   # url_2, level_2, quad1_2, quad2_2, quad_2, finalUrl_2, coord1_2, coord2_2 = fullRun(req_2, test2a, test2b, "EvanstonToNewYork.jpg")
 
-   # req_2 = readRequest("41.8369-42.0464.txt")
-   test3a = (41.8369, -87.6847) # Chicago
-   test3b = (42.0464, -87.6947) # Evanston
-   req_3 = makeRequest(test3a, test3b)
-   url_3, level_3, quad1_3, quad2_3, quad_3, finalUrl_3, coord1_3, coord2_3 = fullRun(req_3, test3a, test3b, "ChicagoToEvanston.jpg")
+   # req_3 = readRequest("41.8369-42.0464.txt")
+   # test3a = (41.8369, -87.6847) # Chicago
+   # test3b = (42.0464, -87.6947) # Evanston
+   # # req_3 = makeRequest(test3a, test3b)
+   # url_3, level_3, quad1_3, quad2_3, quad_3, finalUrl_3, coord1_3, coord2_3 = fullRun(req_3, test3a, test3b, "ChicagoToEvanston.jpg")
 
+   req_4 = readRequest("42.0586-42.056717.txt")
    test4a = (42.058600, -87.674878) # NE Tech (Evanston campus)
    test4b = (42.056717, -87.676917) # SW Tech (Evanston campus)
-   req_4 = makeRequest(test4a, test4b)
+   # req_4 = makeRequest(test4a, test4b)
    url_4, level_4, quad1_4, quad2_4, quad_4, finalUrl_4, coord1_4, coord2_4 = fullRun(req_4, test4a, test4b, "Tech.jpg")
-
+ 
    return
 
 if __name__ == "__main__":
